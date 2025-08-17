@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import { useUIStore } from '../store/ui';
 import { useNotificationsStore } from '../store/notifications';
 import { useAuthStore } from '../store/auth';
@@ -19,6 +20,54 @@ export function Sidebar(){
   const { activePage, setActivePage } = useUIStore();
   const unreadCount = useNotificationsStore(s=> s.unreadFeedbackCount());
   const { logout } = useAuthStore();
+  // Typing sequence: AYZEK -> (pause) -> delete -> Akıl Ve Yapay Zeka Derneği -> (pause) -> delete -> loop
+  const SEQUENCE = [
+    { text: 'AYZEK', fullPause: 3000 },            // 3s bekle
+    { text: 'Akıl Ve Yapay Zeka Derneği', fullPause: 5000 }, // 5s bekle
+  ];
+  const [seqIndex, setSeqIndex] = useState(0);
+  const [logoText, setLogoText] = useState('');
+  const [direction, setDirection] = useState<1|-1>(1); // 1 = yaz, -1 = sil
+  const [isPausing, setIsPausing] = useState(false);
+  const [pauseMs, setPauseMs] = useState(0);
+  const target = SEQUENCE[seqIndex].text;
+  useEffect(()=> {
+    let timer:any;
+    // Pause phase
+    if(isPausing){
+      timer = setTimeout(()=> {
+        setIsPausing(false);
+        if(direction === 1 && logoText.length === target.length){
+          // Finished typing current target -> start deleting
+          setDirection(-1);
+        } else if(direction === -1 && logoText.length === 0){
+          // Finished deleting -> go to next sequence item and start typing
+          setSeqIndex(i => (i + 1) % SEQUENCE.length);
+          setDirection(1);
+        }
+      }, pauseMs);
+      return ()=> clearTimeout(timer);
+    }
+    // Active phase (typing or deleting)
+    if(direction === 1){
+      if(logoText.length < target.length){
+        timer = setTimeout(()=> setLogoText(target.slice(0, logoText.length + 1)), 220);
+      } else {
+        // Reached full text -> enter full pause specific to this phrase
+        setPauseMs(SEQUENCE[seqIndex].fullPause);
+        setIsPausing(true);
+      }
+    } else { // deleting
+      if(logoText.length > 0){
+        timer = setTimeout(()=> setLogoText(logoText.slice(0, -1)), 180);
+      } else {
+        // Fully deleted -> brief pause before next phrase typing starts
+        setPauseMs(800);
+        setIsPausing(true);
+      }
+    }
+    return ()=> clearTimeout(timer);
+  }, [logoText, direction, isPausing, pauseMs, seqIndex, target]);
 
   const handlePageChange = (pageKey: PageKey) => {
     console.log('Changing page to:', pageKey);
@@ -32,7 +81,10 @@ export function Sidebar(){
   return (
     <aside className="h-full w-60 bg-slate-900/80 backdrop-blur-xl border-r border-slate-800 flex flex-col select-none relative z-10">
       <div className="px-5 pt-6 pb-4">
-        <div className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-emerald-400 to-indigo-400 bg-clip-text text-transparent">AYZEK</div>
+        <div className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-emerald-400 to-indigo-400 bg-clip-text text-transparent flex items-center">
+          <span>{logoText}</span>
+          <span className={`w-2 h-6 ml-0.5 rounded-sm ${isPausing ? 'opacity-0' : 'bg-cyan-400/80 animate-pulse'}`} />
+        </div>
       </div>
       <nav className="flex-1 px-2 space-y-1 overflow-y-auto pt-4">
         {items.map(item=>{

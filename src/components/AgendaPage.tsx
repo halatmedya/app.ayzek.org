@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ANIM } from '../utils/anim';
 import { useAgendaStore, toKey, addDays } from '../store/agenda';
 import { cn } from '../utils/cn';
 import { useNotificationsStore } from '../store/notifications';
@@ -9,21 +10,26 @@ import { useUIStore } from '../store/ui';
 export function AgendaPage(){
   const { selectedDate, selectDate, tasks, sessions, addTask, toggleTask, editTask, deleteTask, addSession, editSession, deleteSession, moveTask } = useAgendaStore();
   const { activePage, focusTask, setFocusTask, pendingFeedbackDates, clearPendingFeedbackDate } = useUIStore();
+  // Page enter animation cycle counter
+  const [enterAnimTick, setEnterAnimTick] = useState(0);
   const [viewFeedbackTask, setViewFeedbackTask] = useState<string|null>(null);
   const baseToday = useMemo(()=> new Date(), []);
   // 14 günlük pencere; ileri geri oklarıyla kaydırılır
   const [calendarPage, setCalendarPage] = useState(0);
   const days = useMemo(()=> Array.from({length:14}, (_,i)=> addDays(baseToday, i-7 + calendarPage*14)), [baseToday, calendarPage]);
+  // Navigation animation key to force re-mount (takvim ileri/geri aynı animasyon)
+  const calendarAnimKey = `${enterAnimTick}-${calendarPage}`;
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskName, setTaskName] = useState('');
   const [editId, setEditId] = useState<string|null>(null);
 
-  // Ajanda sayfasına her geçişte bugüne dön
+  // Ajanda sayfasına her geçişte bugüne dön ve animasyonları yeniden tetikle
   useEffect(() => {
     if (activePage === 'agenda') {
       const today = new Date();
       selectDate(toKey(today));
       setCalendarPage(0); // Takvimi de bugünün bulunduğu haftaya çek
+      setEnterAnimTick(t=> t+1);
     }
   }, [activePage, selectDate]);
 
@@ -229,9 +235,15 @@ export function AgendaPage(){
 
   return (
     <div className="space-y-16">
-      <Calendar14 days={days} selectedDate={selectedDate} onSelect={(k)=> selectDate(k)} onDayDrop={onDayDrop} allowDrop={allowDrop} onPrev={()=> setCalendarPage(p=> p-1)} onNext={()=> setCalendarPage(p=> p+1)} />
+      <Calendar14 key={calendarAnimKey} days={days} selectedDate={selectedDate} onSelect={(k)=> selectDate(k)} onDayDrop={onDayDrop} allowDrop={allowDrop} onPrev={()=> setCalendarPage(p=> p-1)} onNext={()=> setCalendarPage(p=> p+1)} />
       <div className="flex flex-col xl:flex-row gap-10">
-        <section className="flex-1 space-y-6">
+        <motion.section
+          key={`tasks-${enterAnimTick}`}
+          initial={{opacity:0, y:120}}
+          animate={{opacity:1, y:0}}
+          transition={{duration:ANIM.durLong, ease:ANIM.ease, delay:0.2}}
+          className="flex-1 space-y-6"
+        >
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold tracking-tight">Görevler</h2>
             <div className="flex items-center gap-2">
@@ -241,11 +253,21 @@ export function AgendaPage(){
           </div>
           <TaskList tasks={currentTasks} dateKey={selectedDate} onEdit={openEdit} onDragStart={onDragStart} />
           <SessionsList sessions={currentSessions} dateKey={selectedDate} onEditSession={editSession} onDeleteSession={deleteSession} />
-        </section>
-        <aside className="w-full xl:w-96 space-y-8">
-          <StopwatchCard stopwatch={stopwatch} start={()=> {startSoundRef.current?.play().catch(()=>{}); startStopwatch();}} stop={()=> {stopSoundRef.current?.play().catch(()=>{}); stopStopwatch();}} reset={resetStopwatch} save={saveStopwatch} format={formatDuration} openFull={()=> setFullscreen('stopwatch')} />
-          <CountdownCard countdown={countdown} setCountdown={setCountdown} start={()=> {startSoundRef.current?.play().catch(()=>{}); startCountdown();}} stop={()=> {stopSoundRef.current?.play().catch(()=>{}); stopCountdown();}} reset={resetCountdown} save={saveCountdown} format={formatDuration} currentLeft={currentCountdownLeft()} openFull={()=> setFullscreen('countdown')} />
-        </aside>
+        </motion.section>
+        <motion.aside
+          key={`timers-${enterAnimTick}`}
+          initial={{opacity:0, x:140}}
+          animate={{opacity:1, x:0}}
+          transition={{duration:ANIM.durLong, ease:ANIM.ease, delay:0.4}}
+          className="w-full xl:w-96 space-y-8"
+        >
+          <motion.div initial={{opacity:0, x:60}} animate={{opacity:1, x:0}} transition={{duration:ANIM.durMedium, ease:ANIM.ease, delay:0.55}}>
+            <StopwatchCard stopwatch={stopwatch} start={()=> {startSoundRef.current?.play().catch(()=>{}); startStopwatch();}} stop={()=> {stopSoundRef.current?.play().catch(()=>{}); stopStopwatch();}} reset={resetStopwatch} save={saveStopwatch} format={formatDuration} openFull={()=> setFullscreen('stopwatch')} />
+          </motion.div>
+          <motion.div initial={{opacity:0, x:80}} animate={{opacity:1, x:0}} transition={{duration:ANIM.durMedium, ease:ANIM.ease, delay:0.7}}>
+            <CountdownCard countdown={countdown} setCountdown={setCountdown} start={()=> {startSoundRef.current?.play().catch(()=>{}); startCountdown();}} stop={()=> {stopSoundRef.current?.play().catch(()=>{}); stopCountdown();}} reset={resetCountdown} save={saveCountdown} format={formatDuration} currentLeft={currentCountdownLeft()} openFull={()=> setFullscreen('countdown')} />
+          </motion.div>
+        </motion.aside>
       </div>
       <AnimatePresence>{showTaskModal && (<TaskModal key="taskModal" onClose={()=> setShowTaskModal(false)} onSave={saveTask} value={taskName} setValue={setTaskName} editing={!!editId} />)}</AnimatePresence>
       
@@ -300,15 +322,45 @@ function Calendar14({days, selectedDate, onSelect, onDayDrop, allowDrop, onPrev,
   }, [tasks]);
   return (
     <div className="relative">
-      <div className="grid grid-cols-7 gap-3">
-        {days.map((d)=> {
+      <motion.div
+        className="grid grid-cols-7 gap-3"
+        initial="hidden"
+        animate="show"
+        variants={{ hidden:{}, show:{} }}
+      >
+        {days.map((d, idx)=> {
           const key = toKey(d);
           const isToday = key === todayKey;
           const isSelected = key === selectedDate;
           const hasPending = pendingFeedbackDates.includes(key);
           const hasFeedback = daysWithFeedback.has(key);
+          // Yeni: sırayla biri üstten biri alttan kayma (alternating vertical direction)
+          const direction = idx % 2 === 0 ? -60 : 60; // even -> from top, odd -> from bottom
+          const orderIndex = idx; // basit sıralı gecikme
           return (
-            <motion.button layout key={key} onClick={()=> onSelect(key)} onDrop={(e)=> onDayDrop(e,key)} onDragOver={allowDrop} whileTap={{scale:0.9}} className={cn("relative h-24 rounded-2xl border bg-slate-900/40 backdrop-blur-xl flex flex-col items-center justify-center gap-1 transition-colors overflow-hidden", isSelected ? 'border-cyan-400/60 text-white shadow-[0_0_0_1px_rgba(34,211,238,0.3)]' : hasPending ? 'border-amber-400/70 text-amber-100 animate-pulse shadow-[0_0_0_1px_rgba(245,158,11,0.4)]' : hasFeedback ? 'border-yellow-400/50 animate-pulse shadow-[0_0_0_1px_rgba(250,204,21,0.3)]' : 'border-slate-700/40 hover:border-slate-500/40 text-slate-300')}>
+            <motion.button
+              layout
+              key={key}
+              custom={orderIndex}
+              variants={{
+                hidden:{ opacity:0, y: direction, scale:0.9 },
+                show:(i:number)=> ({
+                  opacity:1,
+                  y:0,
+                  scale:1,
+                  transition:{
+                    opacity:{duration:0.4, delay:i*0.05},
+                    y:{duration:0.55, ease:ANIM.ease, delay:i*0.05},
+                    scale:{duration:0.55, ease:ANIM.ease, delay:i*0.05}
+                  }
+                })
+              }}
+              onClick={()=> onSelect(key)}
+              onDrop={(e)=> onDayDrop(e,key)}
+              onDragOver={allowDrop}
+              whileTap={{scale:0.9}}
+              className={cn("relative h-24 rounded-2xl border bg-slate-900/40 backdrop-blur-xl flex flex-col items-center justify-center gap-1 transition-colors overflow-hidden", isSelected ? 'border-cyan-400/60 text-white shadow-[0_0_0_1px_rgba(34,211,238,0.3)]' : hasPending ? 'border-amber-400/70 text-amber-100 animate-pulse shadow-[0_0_0_1px_rgba(245,158,11,0.4)]' : hasFeedback ? 'border-yellow-400/50 animate-pulse shadow-[0_0_0_1px_rgba(250,204,21,0.3)]' : 'border-slate-700/40 hover:border-slate-500/40 text-slate-300')}
+            >
               {isSelected && <motion.span layoutId="cal-sel" className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 via-emerald-500/10 to-indigo-500/10" />}
               {hasPending && !isSelected && <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_0_2px_rgba(15,23,42,0.8)]" />}
               {hasFeedback && !isSelected && !hasPending && <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse shadow-[0_0_0_2px_rgba(15,23,42,0.8)]" />}
@@ -318,7 +370,7 @@ function Calendar14({days, selectedDate, onSelect, onDayDrop, allowDrop, onPrev,
             </motion.button>
           );
         })}
-      </div>
+      </motion.div>
       {/* Navigation arrows positioned lower to avoid touching calendar */}
       <div className="absolute -bottom-8 right-0 flex gap-2">
         <button onClick={onPrev} className="w-8 h-8 rounded-full bg-slate-800/70 border border-slate-600/40 hover:bg-slate-700/70 text-slate-200 text-sm flex items-center justify-center" aria-label="Geri">←</button>
@@ -334,10 +386,26 @@ function TaskList({tasks, dateKey, onEdit, onDragStart}:{tasks: any[]; dateKey:s
   const [viewFeedbackTask, setViewFeedbackTask] = useState<any|null>(null);
   if (!tasks.length) return <div className="text-sm text-slate-500">Görev yok. + ile ekle.</div>;
   return (
-    <ul className="space-y-2">
+    <motion.ul
+      className="space-y-2"
+      initial="hidden"
+      animate="show"
+      variants={{ hidden:{}, show:{ transition:{ staggerChildren:0.06 } } }}
+    >
       <AnimatePresence initial={false}>
-        {tasks.map(task => (
-      <motion.li key={task.id} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}} draggable onDragStart={(e: any)=> onDragStart(e as React.DragEvent, task.id)} className={cn("group flex items-center gap-3 p-3 rounded-xl border cursor-grab active:cursor-grabbing bg-slate-800/50 hover:border-slate-600/40", focusTask && focusTask.taskId===task.id && focusTask.taskDate===dateKey ? 'border-amber-400 shadow-[0_0_0_1px_rgba(245,158,11,0.5)] animate-pulse' : task.feedbacks && task.feedbacks.length>0 ? 'border-cyan-400/60 shadow-[0_0_0_1px_rgba(34,211,238,0.4)] animate-pulse' : 'border-slate-700/40')}>
+        {tasks.map((task, idx) => (
+      <motion.li
+        key={task.id}
+        custom={idx}
+        variants={{
+          hidden:{ opacity:0, y:50 },
+          show:(i:number)=> ({ opacity:1, y:0, transition:{ duration:0.65, ease:ANIM.ease, delay: i*0.02 } })
+        }}
+        exit={{opacity:0,y:-20, transition:{duration:0.3}}}
+        draggable
+        onDragStart={(e: any)=> onDragStart(e as React.DragEvent, task.id)}
+        className={cn("group flex items-center gap-3 p-3 rounded-xl border cursor-grab active:cursor-grabbing bg-slate-800/50 hover:border-slate-600/40", focusTask && focusTask.taskId===task.id && focusTask.taskDate===dateKey ? 'border-amber-400 shadow-[0_0_0_1px_rgba(245,158,11,0.5)] animate-pulse' : task.feedbacks && task.feedbacks.length>0 ? 'border-cyan-400/60 shadow-[0_0_0_1px_rgba(34,211,238,0.4)] animate-pulse' : 'border-slate-700/40')}
+      >
             <button onClick={()=> toggleTask(dateKey, task.id)} className={cn("w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold", task.completed ? 'bg-emerald-500 text-slate-900' : 'bg-slate-700/70 hover:bg-slate-600')}>{task.completed ? '✓' : ''}</button>
             <span className={cn("flex-1 text-sm", task.completed && 'line-through text-slate-500')}>{task.name}</span>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -353,7 +421,7 @@ function TaskList({tasks, dateKey, onEdit, onDragStart}:{tasks: any[]; dateKey:s
           </motion.li>
         ))}
       </AnimatePresence>
-    </ul>
+    </motion.ul>
   );
 }
 

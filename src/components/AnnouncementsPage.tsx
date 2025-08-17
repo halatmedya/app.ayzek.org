@@ -1,15 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useAnnouncementsStore, AnnouncementItem, AnnouncementPoll, AnnouncementPost } from '../store/announcements';
 import { useUserStore } from '../store/user';
 import { cn } from '../utils/cn';
+import { useUIStore } from '../store/ui';
+import { ANIM } from '../utils/anim';
 
 export function AnnouncementsPage(){
   const { items, addPost, addPoll, votePoll, addComment } = useAnnouncementsStore();
   const { profile } = useUserStore();
+  const { activePage } = useUIStore();
   const [showComposer, setShowComposer] = useState(false);
   const [mode, setMode] = useState<'select'|'post'|'poll'>('select');
+  const [enterAnimTick, setEnterAnimTick] = useState(0);
+  useEffect(()=> { if(activePage==='announcements'){ setEnterAnimTick(t=> t+1);} }, [activePage]);
   
   const CURRENT_USER = { 
     id: profile.id, 
@@ -22,8 +27,10 @@ export function AnnouncementsPage(){
   console.log('AnnouncementsPage render - showComposer:', showComposer, 'mode:', mode);
   
   return (
-    <div className="space-y-8">
-      <ComposerTrigger onOpen={()=> { setShowComposer(true); setMode('select'); }} />
+    <div className="space-y-8" key={`ann-${enterAnimTick}`}>
+      <motion.div initial={{opacity:0, y:-40}} animate={{opacity:1, y:0}} transition={{duration:ANIM.durMedium, ease:ANIM.ease}}>
+        <ComposerTrigger onOpen={()=> { setShowComposer(true); setMode('select'); }} />
+      </motion.div>
       <AnimatePresence>
         {showComposer && (
           <ComposerModal 
@@ -36,7 +43,7 @@ export function AnnouncementsPage(){
           />
         )}
       </AnimatePresence>
-      <FeedList items={items} onVote={(pid, oid)=> votePoll(pid, oid, CURRENT_USER.id)} onComment={(pid, text)=> addComment(pid, text, CURRENT_USER)} />
+      <FeedList items={items} onVote={(pid, oid)=> votePoll(pid, oid, CURRENT_USER.id)} onComment={(pid, text)=> addComment(pid, text, CURRENT_USER)} enterTick={enterAnimTick} />
     </div>
   );
 }
@@ -140,24 +147,24 @@ function ComposerModal({mode,onSelectMode,onBack,onClose,onPost,onPoll}:Composer
   );
 }
 
-function FeedList({items,onVote,onComment}:{items:AnnouncementItem[]; onVote:(pollId:string, optionId:string)=>void; onComment:(parentId:string, text:string)=>void;}){
+function FeedList({items,onVote,onComment,enterTick}:{items:AnnouncementItem[]; onVote:(pollId:string, optionId:string)=>void; onComment:(parentId:string, text:string)=>void; enterTick:number;}){
   return (
-    <div className="space-y-6">
-      {items.map(it=> (
-        <FeedCard key={it.id} item={it} onVote={onVote} onComment={onComment} />
+    <motion.div className="space-y-6" initial="hidden" animate="show" variants={{hidden:{}, show:{transition:{staggerChildren:0.08}}}} key={`feed-${enterTick}`}>
+      {items.map((it,i)=> (
+        <FeedCard key={it.id} item={it} onVote={onVote} onComment={onComment} index={i} />
       ))}
-      {items.length===0 && <div className="text-center text-xs text-slate-500 py-10">Henüz içerik yok.</div>}
-    </div>
+      {items.length===0 && <motion.div initial={{opacity:0}} animate={{opacity:1}} className="text-center text-xs text-slate-500 py-10">Henüz içerik yok.</motion.div>}
+    </motion.div>
   );
 }
 
-function FeedCard({item,onVote,onComment}:{item:AnnouncementItem; onVote:(pid:string, oid:string)=>void; onComment:(pid:string,text:string)=>void;}){
+function FeedCard({item,onVote,onComment,index}:{item:AnnouncementItem; onVote:(pid:string, oid:string)=>void; onComment:(pid:string,text:string)=>void; index:number;}){
   const [commentText, setCommentText] = useState('');
   const { comments } = useAnnouncementsStore();
   const list = comments[item.id] || [];
   const isPoll = item.type==='poll';
   return (
-    <div className="rounded-3xl p-6 bg-slate-900/60 border border-slate-800/60 backdrop-blur-xl space-y-5 relative overflow-hidden">
+    <motion.div className="rounded-3xl p-6 bg-slate-900/60 border border-slate-800/60 backdrop-blur-xl space-y-5 relative overflow-hidden" initial={{opacity:0, y:60}} animate={{opacity:1, y:0}} transition={{duration:0.8, ease:ANIM.ease, delay:index*0.06}}>
       <div className="absolute inset-px rounded-3xl bg-gradient-to-br from-slate-50/2 via-slate-50/0 to-slate-50/0 pointer-events-none" />
       <div className="flex items-start gap-4">
         <Avatar name={item.user.name} avatar={item.user.avatar} />
@@ -199,7 +206,7 @@ function FeedCard({item,onVote,onComment}:{item:AnnouncementItem; onVote:(pid:st
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

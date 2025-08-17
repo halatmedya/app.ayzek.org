@@ -1,10 +1,13 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useUserStore } from '../store/user';
 import { cn } from '../utils/cn';
+import { useUIStore } from '../store/ui';
+import { ANIM } from '../utils/anim';
 
 export function ProfilePage() {
   const { profile, updateProfile, setAvatar, removeAvatar } = useUserStore();
+  const { activePage } = useUIStore();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     username: profile.username,
@@ -15,6 +18,8 @@ export function ProfilePage() {
     bio: profile.bio || '',
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [enterAnimTick, setEnterAnimTick] = useState(0);
+  useEffect(()=> { if(activePage==='profile'){ setEnterAnimTick(t=> t+1);} }, [activePage]);
 
   const handleSave = () => {
     updateProfile(formData);
@@ -66,18 +71,16 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8" key={`prof-${enterAnimTick}`}>
       {/* Header */}
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-400 to-indigo-400 bg-clip-text text-transparent">
-          Profil Ayarları
-        </h1>
-        <p className="text-slate-400 text-sm">Hesap bilgilerinizi düzenleyin</p>
-      </div>
+      <motion.div className="text-center space-y-2" initial={{opacity:0, y:-50}} animate={{opacity:1, y:0}} transition={{duration:ANIM.durMedium, ease:ANIM.ease}}>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-400 to-indigo-400 bg-clip-text text-transparent">Profil Ayarları</h1>
+        <motion.p initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.4, duration:ANIM.durShort}} className="text-slate-400 text-sm">Hesap bilgilerinizi düzenleyin</motion.p>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Avatar Section */}
-        <div className="lg:col-span-1">
+        <motion.div className="lg:col-span-1" initial={{opacity:0, x:-80}} animate={{opacity:1, x:0}} transition={{duration:ANIM.durMedium, ease:ANIM.ease, delay:0.1}}>
           <ProfileCard>
             <div className="text-center space-y-6">
               {/* Avatar */}
@@ -154,10 +157,10 @@ export function ProfilePage() {
               </div>
             </div>
           </ProfileCard>
-        </div>
+        </motion.div>
 
         {/* Form Section */}
-        <div className="lg:col-span-2 space-y-6">
+        <motion.div className="lg:col-span-2 space-y-6" initial={{opacity:0, x:120}} animate={{opacity:1, x:0}} transition={{duration:ANIM.durLong, ease:ANIM.ease, delay:0.2}}>
           <ProfileCard>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold">Kişisel Bilgiler</h3>
@@ -273,7 +276,7 @@ export function ProfilePage() {
               />
             </div>
           </ProfileCard>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

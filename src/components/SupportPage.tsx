@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSupportStore, SupportTicket, TicketPriority, TicketStatus } from '../store/support';
 import { useUserStore } from '../store/user';
 import { cn } from '../utils/cn';
+import { useUIStore } from '../store/ui';
+import { ANIM } from '../utils/anim';
 
 const CATEGORIES = [
   'Teknik Sorun',
@@ -16,8 +18,11 @@ const CATEGORIES = [
 export function SupportPage() {
   const { tickets, messages, createTicket, addMessage } = useSupportStore();
   const { profile } = useUserStore();
+  const { activePage } = useUIStore();
   const [showNewTicket, setShowNewTicket] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
+  const [enterAnimTick, setEnterAnimTick] = useState(0);
+  useEffect(()=> { if(activePage==='support'){ setEnterAnimTick(t=> t+1);} }, [activePage]);
 
   const CURRENT_USER = { 
     id: profile.id, 
@@ -27,9 +32,9 @@ export function SupportPage() {
   };
 
   return (
-    <div className="h-full flex">
+    <div className="h-full flex" key={`sup-${enterAnimTick}`}>
       {/* Ticket List */}
-      <div className="w-1/3 border-r border-slate-800/60 flex flex-col">
+      <motion.div className="w-1/3 border-r border-slate-800/60 flex flex-col" initial={{opacity:0, x:-80}} animate={{opacity:1, x:0}} transition={{duration:ANIM.durMedium, ease:ANIM.ease}}>
         <div className="p-6 border-b border-slate-800/60">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold">Destek Talepleri</h2>
@@ -62,10 +67,10 @@ export function SupportPage() {
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Ticket Detail */}
-      <div className="flex-1 flex flex-col">
+      <motion.div className="flex-1 flex flex-col" initial={{opacity:0, x:120}} animate={{opacity:1, x:0}} transition={{duration:ANIM.durLong, ease:ANIM.ease, delay:0.2}}>
         {selectedTicket ? (
           <TicketDetail 
             ticketId={selectedTicket}
@@ -80,7 +85,7 @@ export function SupportPage() {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* New Ticket Modal */}
       <AnimatePresence>
@@ -99,7 +104,7 @@ export function SupportPage() {
           />
         )}
       </AnimatePresence>
-    </div>
+  </div>
   );
 }
 

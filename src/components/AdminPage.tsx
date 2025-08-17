@@ -7,21 +7,30 @@ import { useAuthStore } from '../store/auth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminChatStore } from '../store/adminChat';
 import { useDirectChatStore } from '../store/directChat';
+import { useUIStore } from '../store/ui';
+import { ANIM } from '../utils/anim';
 
 export function AdminPage(){
   const [tab, setTab] = useState<'stats'|'users'|'support'|'chat'>('stats');
+  const { activePage } = useUIStore();
+  const [enterAnimTick, setEnterAnimTick] = useState(0);
+  useEffect(()=> { if(activePage==='admin'){ setEnterAnimTick(t=> t+1);} }, [activePage]);
   return (
-    <div className="space-y-10">
-      <div className="flex gap-3">
+    <div className="space-y-10" key={`admin-${enterAnimTick}`}>
+      <motion.div className="flex gap-3" initial={{opacity:0, y:-40}} animate={{opacity:1, y:0}} transition={{duration:ANIM.durMedium, ease:ANIM.ease}}>
         <AdminTab label="İstatistikler" active={tab==='stats'} onClick={()=> setTab('stats')} />
         <AdminTab label="Kullanıcılar" active={tab==='users'} onClick={()=> setTab('users')} />
         <AdminTab label="Destek Paneli" active={tab==='support'} onClick={()=> setTab('support')} />
         <AdminTab label="Chat" active={tab==='chat'} onClick={()=> setTab('chat')} />
-      </div>
-      {tab==='stats' && <StatsView />}
-      {tab==='users' && <UsersView />}
-      {tab==='support' && <SupportAdminView />}
-      {tab==='chat' && <AdminChatView />}
+      </motion.div>
+      <AnimatePresence mode="wait">
+        <motion.div key={tab} initial={{opacity:0, y:40}} animate={{opacity:1, y:0}} exit={{opacity:0, y:-30}} transition={{duration:ANIM.durMedium, ease:ANIM.ease}}>
+          {tab==='stats' && <StatsView />}
+          {tab==='users' && <UsersView />}
+          {tab==='support' && <SupportAdminView />}
+          {tab==='chat' && <AdminChatView />}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

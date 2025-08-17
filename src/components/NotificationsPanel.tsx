@@ -3,7 +3,7 @@ import { useUIStore } from '../store/ui';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function NotificationsPanel(){
-  const { notifications, markRead } = useNotificationsStore();
+  const { notifications, markRead, clear, markAllRead } = useNotificationsStore();
   const { setActivePage, setFocusTask, addPendingFeedbackDate } = useUIStore() as any;
 
   function handleClick(n:any){
@@ -19,6 +19,12 @@ export function NotificationsPanel(){
   <div className="bg-slate-900/60 rounded-3xl border border-slate-800/80 p-6 backdrop-blur-2xl w-full h-full flex flex-col shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-semibold text-sm tracking-wide text-slate-200">Bildirimler</h2>
+        {notifications.length>0 && (
+          <div className="flex items-center gap-2">
+            <button onClick={markAllRead} className="text-[10px] px-2 py-1 rounded-md bg-slate-700/50 hover:bg-slate-600/50 text-slate-300">Hepsini Oku</button>
+            <button onClick={clear} className="text-[10px] px-2 py-1 rounded-md bg-red-600/60 hover:bg-red-500 text-white">Temizle</button>
+          </div>
+        )}
       </div>
   <ul className="space-y-3 overflow-y-auto pr-1 custom-scroll flex-1">
         <AnimatePresence initial={false}>

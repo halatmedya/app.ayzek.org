@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAgendaStore } from '../store/agenda';
 import { useUserStore } from '../store/user';
 import { useDirectChatStore } from '../store/directChat';
+import { useUIStore } from '../store/ui';
+import { ANIM } from '../utils/anim';
 
 const QUOTES = [
   'Bugün attığın küçük adımlar yarının büyük zaferleri olur.',
@@ -22,7 +24,12 @@ export function HomeDashboard(){
   const { sessions } = useAgendaStore();
   const { profile } = useUserStore();
   const { chats, messages, sendMessage } = useDirectChatStore();
+  const { activePage } = useUIStore();
   const [userChatInput, setUserChatInput] = useState('');
+  const [typedName, setTypedName] = useState('');
+  // Sayfaya her girişte animasyonları yeniden tetikleyecek sayaç
+  const [enterAnimTick, setEnterAnimTick] = useState(0);
+  const fullName = (profile.firstName && profile.lastName ? `${profile.firstName} ${profile.lastName}` : profile.username);
 
   // Aktif chat (tek kullanıcı senaryosu: userId = profile.id)
   const myChat = useMemo(()=> chats.find(c=> c.userId === profile.id && !c.closed), [chats, profile.id]);
@@ -57,42 +64,46 @@ export function HomeDashboard(){
     if(el) el.scrollTop = el.scrollHeight;
   }, [myChatMessages.length]);
 
+  // Navbar'dan home seçilince animasyon tetikleyici artar
+  useEffect(()=> {
+    if(activePage==='home') setEnterAnimTick(t=> t+1);
+  }, [activePage]);
+
+  // İsim yazma efekti (sayfa girişlerinde tekrarlar)
+  useEffect(()=> {
+    let i=0; setTypedName('');
+    const id = setInterval(()=> {
+      i++; setTypedName(fullName.slice(0,i));
+      if(i>=fullName.length) clearInterval(id);
+    }, ANIM.typingInterval);
+    return ()=> clearInterval(id);
+  }, [fullName, enterAnimTick]);
+
   return (
     <div className="space-y-12">
       {/* Kullanıcı Bilgileri ve Günlük Özet */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-slate-200">
-            {profile.firstName && profile.lastName 
-              ? `${profile.firstName} ${profile.lastName}`
-              : profile.username
-            }
+      <div className="flex items-center justify-between" key={`hdr-${enterAnimTick}`}>
+        <div className="space-y-1 overflow-hidden">
+          <h1 className="text-2xl font-bold text-slate-200 whitespace-nowrap">
+            <span className="inline-block align-baseline">{typedName}</span>
+            {typedName.length < fullName.length && <span className="inline-block w-2 h-5 bg-cyan-400/70 animate-pulse ml-0.5 rounded-sm" />}
           </h1>
-          <p className="text-sm text-slate-400">
-            {currentTime.toLocaleDateString('tr-TR', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })} • {currentTime.toLocaleTimeString('tr-TR', { 
-              hour: '2-digit', 
-              minute: '2-digit',
-              second: '2-digit'
-            })}
-          </p>
+          <motion.p key={`date-${enterAnimTick}`} initial={{opacity:0, x:50}} animate={{opacity:1, x:0}} transition={{delay:0.5, duration:ANIM.durShort, ease:ANIM.ease}} className="text-sm text-slate-400">
+            {currentTime.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} • {currentTime.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </motion.p>
         </div>
-        <div className="text-right">
+        <motion.div key={`work-${enterAnimTick}`} initial={{opacity:0, x:100}} animate={{opacity:1, x:0}} transition={{delay:0.8, duration:ANIM.durMedium, ease:ANIM.ease}} className="text-right">
           <div className="text-lg font-semibold text-emerald-400">{todayWorkTime}</div>
           <div className="text-xs text-slate-500 uppercase tracking-wider">Bugün Çalışılan</div>
-        </div>
+        </motion.div>
       </div>
       
       <div className="flex flex-col lg:flex-row gap-8 items-stretch">
-        <div className="flex-1 flex items-center justify-center">
+        <motion.div key={`rings-${enterAnimTick}`} initial={{opacity:0, y:110}} animate={{opacity:1, y:0}} transition={{delay:0.9, duration:ANIM.durMedium, ease:ANIM.ease}} className="flex-1 flex items-center justify-center">
           <Rings />
-        </div>
-        <div className="w-full lg:w-[460px] 2xl:w-[520px] flex flex-col gap-6">
-          <div className="relative group rounded-3xl p-6 bg-gradient-to-br from-slate-900/70 via-slate-900/40 to-slate-800/40 border border-slate-700/40 backdrop-blur-xl shadow-[0_0_0_1px_rgba(255,255,255,0.02)] overflow-hidden">
+        </motion.div>
+        <div className="w-full lg:w-[460px] 2xl:w-[520px] flex flex-col gap-8">
+          <motion.div key={`mot-${enterAnimTick}`} initial={{opacity:0, x:140, y:-60}} animate={{opacity:1, x:0, y:0}} transition={{delay:1.05, duration:ANIM.durLong, ease:ANIM.ease}} className="relative group rounded-3xl p-6 bg-gradient-to-br from-slate-900/70 via-slate-900/40 to-slate-800/40 border border-slate-700/40 backdrop-blur-xl shadow-[0_0_0_1px_rgba(255,255,255,0.02)] overflow-hidden">
             <div className="absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(34,211,238,0.15),transparent_60%),radial-gradient(circle_at_80%_70%,rgba(129,140,248,0.12),transparent_55%)] animate-gradient-move" />
             </div>
@@ -104,10 +115,10 @@ export function HomeDashboard(){
               <AnimatePresence mode="wait">
                 <motion.p
                   key={index}
-                  initial={{opacity:0, y:10, filter:'blur(4px)'}}
+                  initial={{opacity:0, y:16, filter:'blur(6px)'}}
                   animate={{opacity:1, y:0, filter:'blur(0px)'}}
-                  exit={{opacity:0, y:-10, filter:'blur(4px)'}}
-                  transition={{duration:0.6, ease:'easeOut'}}
+                  exit={{opacity:0, y:-16, filter:'blur(6px)'}}
+                  transition={{duration:1.0, ease:ANIM.ease}}
                   className="text-lg leading-relaxed font-medium text-slate-200"
                 >
                   “{QUOTES[index]}”
@@ -115,12 +126,12 @@ export function HomeDashboard(){
               </AnimatePresence>
             </div>
             <div className="mt-4 text-[10px] tracking-widest text-slate-500 uppercase">{index+1}/{QUOTES.length}</div>
-          </div>
-          <div className="flex-1 min-h-[320px]">
+          </motion.div>
+          <motion.div key={`notif-${enterAnimTick}`} initial={{opacity:0, x:160, y:80}} animate={{opacity:1, x:0, y:0}} transition={{delay:1.25, duration:ANIM.durLong, ease:ANIM.ease}} className="flex-1 min-h-[320px]">
             <NotificationsPanel />
-          </div>
+          </motion.div>
           {myChat && (
-            <div className="rounded-3xl p-4 bg-slate-900/60 border border-slate-800/60 flex flex-col h-72">
+            <motion.div key={`chat-${enterAnimTick}`} initial={{opacity:0, x:180, y:110}} animate={{opacity:1, x:0, y:0}} transition={{delay:1.4, duration:ANIM.durLong, ease:ANIM.ease}} className="rounded-3xl p-4 bg-slate-900/60 border border-slate-800/60 flex flex-col h-72">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-semibold tracking-wide text-cyan-300">YETKİLİ İLE SOHBET</h3>
                 <div className="text-[10px] text-slate-500">{myChatMessages.length} mesaj</div>
@@ -138,7 +149,7 @@ export function HomeDashboard(){
                 <input value={userChatInput} onChange={e=> setUserChatInput(e.target.value)} onKeyDown={e=> { if(e.key==='Enter'){ sendUserChat(); } }} placeholder="Mesaj yaz..." className="flex-1 text-[11px] px-3 py-2 rounded-lg bg-slate-800/70 border border-slate-700/50 focus:border-cyan-400 outline-none" />
                 <button onClick={sendUserChat} disabled={!userChatInput.trim()} className="px-3 py-2 rounded-lg text-[11px] bg-cyan-600/70 hover:bg-cyan-500 text-white disabled:opacity-40">Gönder</button>
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
       </div>
