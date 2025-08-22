@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { saveAgendaDate } from '../firebase/sync';
+import { useAuthStore } from './auth';
 
 export interface TaskFeedback {
   id: string;
@@ -50,6 +52,31 @@ function loadInitial(){
 
 function persist(partial: Pick<AgendaState,'tasks'|'sessions'>){
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(partial)); } catch(_){ }
+  queueRemoteFlush(partial); // incremental remote push
+}
+
+// --- Remote Incremental Sync Queue (debounced) ---
+let remoteTimer: any = null;
+let pending: Pick<AgendaState,'tasks'|'sessions'> | null = null;
+function queueRemoteFlush(partial: Pick<AgendaState,'tasks'|'sessions'>){
+  // accumulate latest snapshot
+  pending = partial;
+  if(remoteTimer) clearTimeout(remoteTimer);
+  remoteTimer = setTimeout(async ()=> {
+    if(!pending) return;
+    try {
+      const uid = useAuthStore.getState().user?.uid;
+      if(uid){
+        // send only changed days (rough diff)
+        const tasks = pending.tasks; const sessions = pending.sessions;
+        const days = new Set([...Object.keys(tasks), ...Object.keys(sessions)]);
+        for(const day of days){
+          await saveAgendaDate(uid, day, { tasks: tasks[day] || [], sessions: sessions[day] || [] });
+        }
+      }
+    } catch(e){ console.error('agenda remote flush error', e); }
+    finally { pending = null; }
+  }, 600); // debounce 600ms
 }
 
 function todayKey(){
@@ -63,13 +90,13 @@ export const useAgendaStore = create<AgendaState>((set,get)=> {
     tasks: init.tasks,
     sessions: init.sessions,
     selectDate: (date) => set({selectedDate: date}),
-    addTask: (date, name) => set(state => {
+  addTask: (date, name) => set(state => {
       const task: AgendaTask = { id: crypto.randomUUID(), name: name.trim(), completed:false, createdAt: Date.now() };
       const tasks = { ...state.tasks, [date]: [task, ...(state.tasks[date]||[])] };
       persist({tasks, sessions: state.sessions});
       return { tasks };
     }),
-    toggleTask: (date, id) => set(state => {
+  toggleTask: (date, id) => set(state => {
       const currentTask = (state.tasks[date]||[]).find(t=> t.id===id);
       const wasIncomplete = currentTask && !currentTask.completed;
       const hadFeedbacks = currentTask && currentTask.feedbacks && currentTask.feedbacks.length > 0;
@@ -125,31 +152,31 @@ export const useAgendaStore = create<AgendaState>((set,get)=> {
       
       return { tasks };
     }),
-    editTask: (date, id, name) => set(state => {
+  editTask: (date, id, name) => set(state => {
       const tasksArr = (state.tasks[date]||[]).map(t=> t.id===id ? {...t, name: name.trim() }: t);
       const tasks = { ...state.tasks, [date]: tasksArr };
       persist({tasks, sessions: state.sessions});
       return { tasks };
     }),
-    deleteTask: (date, id) => set(state => {
+  deleteTask: (date, id) => set(state => {
       const tasksArr = (state.tasks[date]||[]).filter(t=> t.id!==id);
       const tasks = { ...state.tasks, [date]: tasksArr };
       persist({tasks, sessions: state.sessions});
       return { tasks };
     }),
-    addSession: (date, data) => set(state => {
+  addSession: (date, data) => set(state => {
       const session: AgendaSession = { id: crypto.randomUUID(), createdAt: Date.now(), ...data };
       const sessions = { ...state.sessions, [date]: [session, ...(state.sessions[date]||[])] };
       persist({tasks: state.tasks, sessions});
       return { sessions };
     }),
-    clearDay: (date) => set(state => {
+  clearDay: (date) => set(state => {
       const tasks = { ...state.tasks, [date]: [] };
       const sessions = { ...state.sessions, [date]: [] };
       persist({tasks, sessions});
       return { tasks, sessions };
     }),
-    moveTask: (fromDate, toDate, id) => set(state => {
+  moveTask: (fromDate, toDate, id) => set(state => {
       if(fromDate === toDate) return {} as any;
       const fromArr = (state.tasks[fromDate]||[]);
       const task = fromArr.find(t=> t.id===id);
@@ -161,7 +188,7 @@ export const useAgendaStore = create<AgendaState>((set,get)=> {
       persist({tasks, sessions: state.sessions});
       return { tasks };
     }),
-    addFeedback: (date, id, message) => set(state => {
+  addFeedback: (date, id, message) => set(state => {
       const list = state.tasks[date] || [];
       const tasksArr = list.map(t => t.id===id ? {
         ...t,
@@ -171,7 +198,7 @@ export const useAgendaStore = create<AgendaState>((set,get)=> {
       persist({tasks, sessions: state.sessions});
       return { tasks };
     }),
-    importData: (data) => set(state => {
+  importData: (data) => set(state => {
       // Basic validation
       if(!data || typeof data !== 'object') return {} as any;
       const tasks = sanitizeTasks(data.tasks || {});
@@ -179,7 +206,7 @@ export const useAgendaStore = create<AgendaState>((set,get)=> {
       persist({tasks, sessions});
       return { tasks, sessions };
     }),
-    editSession: (date, id, label) => set(state => {
+  editSession: (date, id, label) => set(state => {
       const sessionsForDate = state.sessions[date] || [];
       const updatedSessions = sessionsForDate.map(session => 
         session.id === id ? { ...session, label } : session
@@ -188,7 +215,7 @@ export const useAgendaStore = create<AgendaState>((set,get)=> {
       persist({tasks: state.tasks, sessions});
       return { sessions };
     }),
-    deleteSession: (date, id) => set(state => {
+  deleteSession: (date, id) => set(state => {
       const sessionsForDate = state.sessions[date] || [];
       const filteredSessions = sessionsForDate.filter(session => session.id !== id);
       const sessions = { ...state.sessions, [date]: filteredSessions };

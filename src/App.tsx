@@ -1,6 +1,7 @@
 import { useUIStore } from './store/ui';
 import { useAuthStore } from './store/auth';
 import { Sidebar } from './components/Sidebar';
+import { MobileTopBar } from './components/MobileTopBar';
 import { HomeDashboard } from './components/HomeDashboard';
 import { AgendaPage } from './components/AgendaPage';
 import { AuroraBackground } from './components/AuroraBackground';
@@ -73,15 +74,16 @@ export default function App() {
       <AuthListener />
       <div className="relative h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 font-sans">
         <AuroraBackground />
+        <MobileTopBar />
         <div className="flex h-full w-full relative z-10">
-          <Sidebar />
-          <main className="flex-1 relative z-10 h-full overflow-hidden">
+          <div className="hidden md:block"><Sidebar /></div>
+          <main className="flex-1 relative z-10 h-full overflow-hidden pt-14 md:pt-0">
             <div className="h-full w-full relative">
               <section
                 aria-hidden={activePage !== 'home'}
                 className={`absolute inset-0 transition-opacity duration-250 ${activePage === 'home' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
               >
-                <div className="h-full overflow-y-auto p-10">
+                <div className="h-full overflow-y-auto p-6 md:p-10">
                   <HomeDashboard />
                 </div>
               </section>
@@ -89,7 +91,7 @@ export default function App() {
                 aria-hidden={activePage !== 'agenda'}
                 className={`absolute inset-0 transition-opacity duration-250 ${activePage === 'agenda' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
               >
-                <div className="h-full overflow-y-auto p-10">
+                <div className="h-full overflow-y-auto p-6 md:p-10">
                   <AgendaPage />
                 </div>
               </section>
@@ -97,7 +99,7 @@ export default function App() {
                 aria-hidden={activePage !== 'announcements'}
                 className={`absolute inset-0 transition-opacity duration-250 ${activePage === 'announcements' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
               >
-                <div className="h-full overflow-y-auto p-10">
+                <div className="h-full overflow-y-auto p-6 md:p-10">
                   <AnnouncementsPage />
                 </div>
               </section>
@@ -113,7 +115,7 @@ export default function App() {
                 aria-hidden={activePage !== 'profile'}
                 className={`absolute inset-0 transition-opacity duration-250 ${activePage === 'profile' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
               >
-                <div className="h-full overflow-y-auto p-10">
+                <div className="h-full overflow-y-auto p-6 md:p-10">
                   <ProfilePage />
                 </div>
               </section>
@@ -129,7 +131,7 @@ export default function App() {
                 aria-hidden={!(activePage !== 'home' && activePage !== 'agenda' && activePage !== 'announcements' && activePage !== 'support' && activePage !== 'profile' && activePage !== 'admin')}
                 className={`absolute inset-0 transition-opacity duration-250 ${activePage !== 'home' && activePage !== 'agenda' && activePage !== 'announcements' && activePage !== 'support' && activePage !== 'profile' && activePage !== 'admin' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
               >
-                <div className="h-full overflow-y-auto p-10 flex items-center justify-center">
+                <div className="h-full overflow-y-auto p-6 md:p-10 flex items-center justify-center">
                   <div className="text-center space-y-4">
                     <h1 className="text-4xl font-extrabold bg-gradient-to-r from-emerald-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent tracking-tight animate-pulse">
                       {pageLabel(activePage)} Sayfası

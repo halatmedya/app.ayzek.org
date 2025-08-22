@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { useAuthStore } from './auth';
+import { saveUserProfile } from '../firebase/sync';
 
 export interface UserProfile {
   id: string;
@@ -49,10 +51,10 @@ export const useUserStore = create<UserStore>((set, get) => ({
         updatedAt: Date.now()
       }
     }));
-    
-    // Persist to localStorage
     const { profile } = get();
-    localStorage.setItem('ayzek_user_v1', JSON.stringify(profile));
+    try { localStorage.setItem('ayzek_user_v1', JSON.stringify(profile)); } catch(_){ }
+    const uid = useAuthStore.getState().user?.uid;
+    if(uid){ saveUserProfile(uid, profile); }
   },
   
   setAvatar: (avatar) => {
@@ -64,9 +66,10 @@ export const useUserStore = create<UserStore>((set, get) => ({
       }
     }));
     
-    // Persist to localStorage
     const { profile } = get();
-    localStorage.setItem('ayzek_user_v1', JSON.stringify(profile));
+    try { localStorage.setItem('ayzek_user_v1', JSON.stringify(profile)); } catch(_){ }
+    const uid = useAuthStore.getState().user?.uid;
+    if(uid){ saveUserProfile(uid, profile); }
   },
   
   removeAvatar: () => {
@@ -78,9 +81,10 @@ export const useUserStore = create<UserStore>((set, get) => ({
       }
     }));
     
-    // Persist to localStorage
     const { profile } = get();
-    localStorage.setItem('ayzek_user_v1', JSON.stringify(profile));
+    try { localStorage.setItem('ayzek_user_v1', JSON.stringify(profile)); } catch(_){ }
+    const uid = useAuthStore.getState().user?.uid;
+    if(uid){ saveUserProfile(uid, profile); }
   },
   
   hydrate: () => {

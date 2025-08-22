@@ -1,7 +1,14 @@
 import { create } from 'zustand';
+import { useAuthStore } from './auth';
+import { db } from '../firebase/config';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 const STORAGE_KEY = 'ayzek_notifications_v1';
-function loadInitial(){
+async function loadInitialRemote(){
+  const uid = useAuthStore.getState().user?.uid;
+  if(uid){
+    try { const ref = doc(db,'users',uid,'meta','notifications'); const snap = await getDoc(ref); if(snap.exists()) return snap.data().notifications || []; } catch(_){ }
+  }
   try { const raw = localStorage.getItem(STORAGE_KEY); if(raw) return JSON.parse(raw); } catch(_){ }
   return [] as NotificationItem[];
 }
@@ -35,13 +42,14 @@ const MOCK_MSG = [
 ];
 
 export const useNotificationsStore = create<NotificationsState>((set,get)=> ({
-  notifications: loadInitial(),
+  notifications: [],
   add: (n) => set(state => {
     const list = [
       { ...n, id:crypto.randomUUID(), date:Date.now(), read: n.read ?? false },
       ...state.notifications
     ].slice(0,100);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch(_){ }
+    const uid = useAuthStore.getState().user?.uid; if(uid){ setDoc(doc(db,'users',uid,'meta','notifications'), { notifications: list }, { merge:true }); }
     return {notifications: list};
   }),
   addMock: () => set(state => {
@@ -53,7 +61,8 @@ export const useNotificationsStore = create<NotificationsState>((set,get)=> ({
       read: false,
       type: 'mock'
     }, ...state.notifications].slice(0,100);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch(_){ }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch(_){ }
+  const uid = useAuthStore.getState().user?.uid; if(uid){ setDoc(doc(db,'users',uid,'meta','notifications'), { notifications: list }, { merge:true }); }
     return {notifications: list};
   }),
   clear: () => set(() => {
@@ -61,19 +70,25 @@ export const useNotificationsStore = create<NotificationsState>((set,get)=> ({
       localStorage.removeItem(STORAGE_KEY);
       console.log('✅ Notifications localStorage temizlendi');
     } catch(_){ }
-    return { notifications: [] };
+  const uid = useAuthStore.getState().user?.uid; if(uid){ setDoc(doc(db,'users',uid,'meta','notifications'), { notifications: [] }, { merge:true }); }
+  return { notifications: [] };
   }),
   markRead: (id) => set(state => {
     const list = state.notifications.map(n=> n.id===id? {...n, read:true}: n);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch(_){ }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch(_){ }
+  const uid = useAuthStore.getState().user?.uid; if(uid){ setDoc(doc(db,'users',uid,'meta','notifications'), { notifications: list }, { merge:true }); }
     return {notifications: list};
   }),
   markAllRead: () => set(state => {
     const list = state.notifications.map(n=> ({...n, read:true}));
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch(_){ }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch(_){ }
+  const uid = useAuthStore.getState().user?.uid; if(uid){ setDoc(doc(db,'users',uid,'meta','notifications'), { notifications: list }, { merge:true }); }
     return {notifications: list};
   }),
   unreadFeedbackCount: () => get().notifications.filter(n => !n.read && n.type==='task-feedback' && n.direction==='admin-to-user').length
 }));
 
 function randomPick<T>(arr:T[]):T { return arr[Math.floor(Math.random()*arr.length)]; }
+
+// hydrate remote on load
+loadInitialRemote().then(list => { useNotificationsStore.setState({ notifications: list }); });

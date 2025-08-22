@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail, User } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail, User, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase/config';
+import { fetchUserProfile, saveUserProfile, fetchAgendaAll, bulkSaveAgenda } from '../firebase/sync';
+import { useAgendaStore } from './agenda';
 import { useUserStore } from './user';
 
 const AUTH_STORAGE_KEY = 'ayzek_auth_state';
@@ -54,12 +56,33 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ user, loading: false, hasStoredSession: true });
       setStoredAuth(true); // Manuel localStorage işareti
       
-      // Profil bilgilerini güncelle
-      const userStore = useUserStore.getState();
-      userStore.updateProfile({
-        email: user.email || '',
-        username: user.displayName || user.email?.split('@')[0] || 'Kullanıcı'
-      });
+      // Uzak profil ve agenda senkronizasyonu
+      try {
+        const uid = user.uid;
+        const remoteProfile = await fetchUserProfile(uid);
+        const agendaStore = useAgendaStore.getState();
+        const userStore = useUserStore.getState();
+        if(remoteProfile){
+          userStore.updateProfile({
+            email: remoteProfile.email || user.email || '',
+            username: remoteProfile.username || user.displayName || user.email?.split('@')[0] || 'Kullanıcı',
+            firstName: remoteProfile.firstName || '',
+            lastName: remoteProfile.lastName || ''
+          });
+        } else {
+          // ilk kez -> kaydet
+            await saveUserProfile(uid, { email: user.email, username: user.displayName || user.email?.split('@')[0] });
+            userStore.updateProfile({ email: user.email || '', username: user.displayName || user.email?.split('@')[0] || 'Kullanıcı' });
+        }
+        // Agenda uzak verileri çek
+        const remoteAgenda = await fetchAgendaAll(uid);
+        if(Object.keys(remoteAgenda.tasks).length || Object.keys(remoteAgenda.sessions).length){
+          agendaStore.importData(remoteAgenda);
+        } else {
+          // lokal varsa ilk yüklemede sunucuya gönder
+          bulkSaveAgenda(uid, { tasks: agendaStore.tasks, sessions: agendaStore.sessions });
+        }
+      } catch(e){ console.error('Login sync error', e); }
     } catch (error: any) {
       let errorMessage = 'Giriş yapılırken bir hata oluştu.';
       
@@ -124,3 +147,32 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   setLoading: (loading) => set({ loading }),
   clearError: () => set({ error: null }),
 }));
+
+// Global auth state listener (runs once when module imported)
+onAuthStateChanged(auth, async (user) => {
+  const store = useAuthStore.getState();
+  if(user){
+    store.setUser(user);
+    setStoredAuth(true);
+    // senkronize
+    try {
+      const uid = user.uid;
+      const remoteProfile = await fetchUserProfile(uid);
+      const userStore = useUserStore.getState();
+      if(remoteProfile){
+        userStore.updateProfile({
+          email: remoteProfile.email || user.email || '',
+          username: remoteProfile.username || user.displayName || user.email?.split('@')[0] || 'Kullanıcı'
+        });
+      }
+      const agendaStore = useAgendaStore.getState();
+      const remoteAgenda = await fetchAgendaAll(uid);
+      if(Object.keys(remoteAgenda.tasks).length || Object.keys(remoteAgenda.sessions).length){
+        agendaStore.importData(remoteAgenda);
+      }
+    } catch(e){ console.error('Auth listener sync error', e); }
+  } else {
+    store.setUser(null);
+    setStoredAuth(false);
+  }
+});

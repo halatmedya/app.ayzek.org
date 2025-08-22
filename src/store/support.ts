@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import { useAuthStore } from './auth';
+import { db } from '../firebase/config';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 export type TicketStatus = 'open' | 'in-progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -73,7 +76,7 @@ export const useSupportStore = create<SupportStore>((set, get) => ({
       createdAt: Date.now(),
     };
     
-    set(state => ({
+  set(state => ({
       tickets: [ticket, ...state.tickets],
       messages: {
         ...state.messages,
@@ -81,9 +84,9 @@ export const useSupportStore = create<SupportStore>((set, get) => ({
       }
     }));
     
-    // Persist to localStorage
-    const { tickets, messages } = get();
-    localStorage.setItem('ayzek_support_v1', JSON.stringify({ tickets, messages }));
+  const { tickets, messages } = get();
+  try { localStorage.setItem('ayzek_support_v1', JSON.stringify({ tickets, messages })); } catch(_){ }
+  const uid = useAuthStore.getState().user?.uid; if(uid){ setDoc(doc(db,'users',uid,'meta','support'), { tickets, messages }, { merge:true }); }
   },
   
   addMessage: (ticketId, content, isFromUser, authorName) => {
@@ -112,9 +115,9 @@ export const useSupportStore = create<SupportStore>((set, get) => ({
       };
     });
     
-    // Persist to localStorage
-    const { tickets, messages } = get();
-    localStorage.setItem('ayzek_support_v1', JSON.stringify({ tickets, messages }));
+  const { tickets, messages } = get();
+  try { localStorage.setItem('ayzek_support_v1', JSON.stringify({ tickets, messages })); } catch(_){ }
+  const uid = useAuthStore.getState().user?.uid; if(uid){ setDoc(doc(db,'users',uid,'meta','support'), { tickets, messages }, { merge:true }); }
   },
   
   updateTicketStatus: (ticketId, status) => {
@@ -126,21 +129,26 @@ export const useSupportStore = create<SupportStore>((set, get) => ({
       )
     }));
     
-    // Persist to localStorage
-    const { tickets, messages } = get();
-    localStorage.setItem('ayzek_support_v1', JSON.stringify({ tickets, messages }));
+  const { tickets, messages } = get();
+  try { localStorage.setItem('ayzek_support_v1', JSON.stringify({ tickets, messages })); } catch(_){ }
+  const uid = useAuthStore.getState().user?.uid; if(uid){ setDoc(doc(db,'users',uid,'meta','support'), { tickets, messages }, { merge:true }); }
   },
   
-  hydrate: () => {
-    try {
-      const stored = localStorage.getItem('ayzek_support_v1');
-      if (stored) {
-        const { tickets, messages } = JSON.parse(stored);
-        set({ tickets: tickets || [], messages: messages || {} });
-      }
-    } catch (error) {
-      console.error('Support store hydration failed:', error);
+  hydrate: async () => {
+    // remote first
+    const uid = useAuthStore.getState().user?.uid;
+    if(uid){
+      try {
+        const ref = doc(db,'users',uid,'meta','support');
+        const snap = await getDoc(ref);
+        if(snap.exists()){
+          const data = snap.data();
+          set({ tickets: data.tickets || [], messages: data.messages || {} });
+          return;
+        }
+      } catch(e){ console.error('support remote hydrate error', e); }
     }
+    try { const stored = localStorage.getItem('ayzek_support_v1'); if(stored){ const { tickets, messages } = JSON.parse(stored); set({ tickets: tickets||[], messages: messages||{} }); } } catch(e){ }
   },
 }));
 

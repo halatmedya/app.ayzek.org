@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import { useAuthStore } from './auth';
+import { db } from '../firebase/config';
+import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 
 // Types
 export interface UserInfo { id: string; name: string; avatar?: string; }
@@ -27,8 +30,13 @@ function loadInitial(): Pick<AnnouncementState, 'items' | 'comments'> {
   return { items: [], comments: {} };
 }
 
-function persist(state: Pick<AnnouncementState, 'items' | 'comments'>){
+async function persist(state: Pick<AnnouncementState, 'items' | 'comments'>){
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(_){ }
+  const uid = useAuthStore.getState().user?.uid;
+  if(uid){
+    // store as single doc (simpler). Could be split later.
+    try { await setDoc(doc(db,'users',uid,'meta','announcements'), state, { merge:true }); } catch(e){ console.error('ann persist error', e); }
+  }
 }
 
 export const useAnnouncementsStore = create<AnnouncementState>((set,get)=>{
@@ -36,7 +44,22 @@ export const useAnnouncementsStore = create<AnnouncementState>((set,get)=>{
   return {
     items: init.items,
     comments: init.comments,
-    hydrate: ()=> set(loadInitial()),
+    hydrate: async ()=> {
+      const uid = useAuthStore.getState().user?.uid;
+      if(uid){
+        try {
+          const col = collection(db,'users',uid,'announcementsData');
+          const snaps = await getDocs(col);
+          // future: migrate to per-doc. Fallback to legacy single meta doc if empty.
+          if(!snaps.empty){
+            let items: AnnouncementItem[] = []; const comments: Record<string, CommentItem[]> = {};
+            snaps.forEach(s=> { const d = s.data(); if(d.items) items = d.items; if(d.comments) Object.assign(comments,d.comments); });
+            set({ items, comments }); return;
+          }
+        } catch(e){ console.error('ann hydrate remote err', e); }
+      }
+      set(loadInitial());
+    },
     addPost: ({text,image,user}) => set(state => {
       const item: AnnouncementPost = { id: crypto.randomUUID(), type:'post', text, image, user, createdAt: Date.now() };
       const items = [item, ...state.items];
