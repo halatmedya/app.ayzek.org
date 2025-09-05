@@ -80,13 +80,14 @@ export function HomeDashboard(){
   }, [fullName, enterAnimTick]);
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-6 max-h-screen overflow-hidden">
       {/* Kullanıcı Bilgileri ve Günlük Özet */}
       <div className="flex items-center justify-between" key={`hdr-${enterAnimTick}`}>
         <div className="space-y-1 overflow-hidden">
           <h1 className="text-2xl font-bold text-slate-200 whitespace-nowrap">
             <span className="inline-block align-baseline">{typedName}</span>
             {typedName.length < fullName.length && <span className="inline-block w-2 h-5 bg-cyan-400/70 animate-pulse ml-0.5 rounded-sm" />}
+            <span className="ml-2 text-3xl">😊</span>
           </h1>
           <motion.p key={`date-${enterAnimTick}`} initial={{opacity:0, x:50}} animate={{opacity:1, x:0}} transition={{delay:0.5, duration:ANIM.durShort, ease:ANIM.ease}} className="text-sm text-slate-400">
             {currentTime.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} • {currentTime.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -98,20 +99,20 @@ export function HomeDashboard(){
         </motion.div>
       </div>
       
-      <div className="flex flex-col lg:flex-row gap-8 items-stretch">
+      <div className="flex flex-col lg:flex-row gap-4 items-stretch">
         <motion.div key={`rings-${enterAnimTick}`} initial={{opacity:0, y:110}} animate={{opacity:1, y:0}} transition={{delay:0.9, duration:ANIM.durMedium, ease:ANIM.ease}} className="flex-1 flex items-center justify-center">
           <Rings />
         </motion.div>
-        <div className="w-full lg:w-[460px] 2xl:w-[520px] flex flex-col gap-8">
-          <motion.div key={`mot-${enterAnimTick}`} initial={{opacity:0, x:140, y:-60}} animate={{opacity:1, x:0, y:0}} transition={{delay:1.05, duration:ANIM.durLong, ease:ANIM.ease}} className="relative group rounded-3xl p-6 bg-gradient-to-br from-slate-900/70 via-slate-900/40 to-slate-800/40 border border-slate-700/40 backdrop-blur-xl shadow-[0_0_0_1px_rgba(255,255,255,0.02)] overflow-hidden">
+        <div className="w-full lg:w-[460px] 2xl:w-[520px] flex flex-col gap-4">
+          <motion.div key={`mot-${enterAnimTick}`} initial={{opacity:0, x:140, y:-60}} animate={{opacity:1, x:0, y:0}} transition={{delay:1.05, duration:ANIM.durLong, ease:ANIM.ease}} className="relative group rounded-3xl p-4 bg-gradient-to-br from-slate-900/70 via-slate-900/40 to-slate-800/40 border border-slate-700/40 backdrop-blur-xl shadow-[0_0_0_1px_rgba(255,255,255,0.02)] overflow-hidden">
             <div className="absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(34,211,238,0.15),transparent_60%),radial-gradient(circle_at_80%_70%,rgba(129,140,248,0.12),transparent_55%)] animate-gradient-move" />
             </div>
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start justify-between mb-3">
               <h2 className="text-sm font-semibold tracking-wider text-cyan-300/80">MOTİVASYON</h2>
               <button onClick={nextQuote} className="text-[10px] uppercase tracking-wider px-3 py-1 rounded-md bg-slate-800/70 hover:bg-slate-700/70 text-slate-300 border border-slate-700/50">Değiştir</button>
             </div>
-            <div className="min-h-[120px] relative">
+            <div className="min-h-[80px] relative">
               <AnimatePresence mode="wait">
                 <motion.p
                   key={index}
@@ -125,13 +126,13 @@ export function HomeDashboard(){
                 </motion.p>
               </AnimatePresence>
             </div>
-            <div className="mt-4 text-[10px] tracking-widest text-slate-500 uppercase">{index+1}/{QUOTES.length}</div>
+            <div className="mt-3 text-[10px] tracking-widest text-slate-500 uppercase">{index+1}/{QUOTES.length}</div>
           </motion.div>
-          <motion.div key={`notif-${enterAnimTick}`} initial={{opacity:0, x:160, y:80}} animate={{opacity:1, x:0, y:0}} transition={{delay:1.25, duration:ANIM.durLong, ease:ANIM.ease}} className="flex-1 min-h-[320px]">
+          <motion.div key={`notif-${enterAnimTick}`} initial={{opacity:0, x:160, y:80}} animate={{opacity:1, x:0, y:0}} transition={{delay:1.25, duration:ANIM.durLong, ease:ANIM.ease}} className="flex-1 min-h-[240px]">
             <NotificationsPanel />
           </motion.div>
           {myChat && (
-            <motion.div key={`chat-${enterAnimTick}`} initial={{opacity:0, x:180, y:110}} animate={{opacity:1, x:0, y:0}} transition={{delay:1.4, duration:ANIM.durLong, ease:ANIM.ease}} className="rounded-3xl p-4 bg-slate-900/60 border border-slate-800/60 flex flex-col h-72">
+            <motion.div key={`chat-${enterAnimTick}`} initial={{opacity:0, x:180, y:110}} animate={{opacity:1, x:0, y:0}} transition={{delay:1.4, duration:ANIM.durLong, ease:ANIM.ease}} className="rounded-3xl p-4 bg-slate-900/60 border border-slate-800/60 flex flex-col h-56">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-semibold tracking-wide text-cyan-300">YETKİLİ İLE SOHBET</h3>
                 <div className="text-[10px] text-slate-500">{myChatMessages.length} mesaj</div>
